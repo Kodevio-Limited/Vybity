@@ -1,0 +1,2900 @@
+openapi: 3.0.3
+info:
+  title: Vybity API
+  version: 3.0.0
+  description: 'Canonical contract for the Vybity consumer app, business portal, and admin panel. Django REST + PostgreSQL/PostGIS. The backend is the source of truth for permissions, visits, reliability, XP, and publication state. Envelope: { data, meta? }; errors: { error: { code, message, fields?, request_id } }. Paths marked (assumption) or PROPOSED-NO-FIGMA are pending owner confirmation.
+
+    '
+servers:
+- url: https://api.vybity.com/api/v1
+  description: Production (placeholder)
+  variables: {}
+tags:
+- name: Auth
+- name: Identity
+- name: Content
+- name: Location
+- name: Home
+- name: Chat
+- name: Places
+- name: Visits
+- name: Contribute
+- name: Media
+- name: Saved
+- name: Profile
+- name: Business Auth
+- name: Business Claim
+- name: Business Dashboard
+- name: Business Settings
+- name: Admin
+security:
+- bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags:
+      - Auth
+      summary: Register (email)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - password
+              - password_confirmation
+              - accepted_terms
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                password_confirmation:
+                  type: string
+                accepted_terms:
+                  type: boolean
+                device:
+                  $ref: '#/components/schemas/Device'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+  /auth/login:
+    post:
+      tags:
+      - Auth
+      summary: Sign in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                device:
+                  $ref: '#/components/schemas/Device'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '423':
+          $ref: '#/components/responses/Error'
+  /auth/social/{provider}:
+    post:
+      tags:
+      - Auth
+      summary: Social sign-in (google|apple)
+      security: []
+      parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - google
+          - apple
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - id_token
+              properties:
+                id_token:
+                  type: string
+                authorization_code:
+                  type: string
+                full_name:
+                  type: string
+                device:
+                  $ref: '#/components/schemas/Device'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Error'
+  /auth/forgot-password:
+    post:
+      tags:
+      - Auth
+      summary: Start password recovery
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /auth/otp/verify:
+    post:
+      tags:
+      - Auth
+      summary: Verify OTP (email or reset)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - otp
+              - purpose
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  pattern: ^[0-9]{6}$
+                purpose:
+                  $ref: '#/components/schemas/OtpPurpose'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/Error'
+        '410':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /auth/otp/resend:
+    post:
+      tags:
+      - Auth
+      summary: Resend OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - purpose
+              properties:
+                email:
+                  type: string
+                  format: email
+                purpose:
+                  $ref: '#/components/schemas/OtpPurpose'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '429':
+          $ref: '#/components/responses/Error'
+  /auth/reset-password:
+    post:
+      tags:
+      - Auth
+      summary: Set a new password with a reset token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reset_token
+              - password
+              - password_confirmation
+              properties:
+                reset_token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                password_confirmation:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '410':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+  /auth/refresh:
+    post:
+      tags:
+      - Auth
+      summary: Rotate tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Error'
+  /auth/logout:
+    post:
+      tags:
+      - Auth
+      summary: Log out
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                all_devices:
+                  type: boolean
+                  default: false
+      responses:
+        '204':
+          description: No content
+  /me/identity:
+    get:
+      tags:
+      - Identity
+      summary: Public identity (handle + avatar)
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /me/account-type:
+    put:
+      tags:
+      - Identity
+      summary: Set consumer|provider intent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - account_type
+              properties:
+                account_type:
+                  $ref: '#/components/schemas/AccountType'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /locations/search:
+    get:
+      tags:
+      - Location
+      summary: Geocode an address
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 120
+      - name: lat
+        in: query
+        schema:
+          type: number
+      - name: lng
+        in: query
+        schema:
+          type: number
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /me/location:
+    get:
+      tags:
+      - Location
+      summary: Current location
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    put:
+      tags:
+      - Location
+      summary: Set current location (gps or manual)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - source
+              properties:
+                source:
+                  type: string
+                  enum:
+                  - gps
+                  - manual
+                lat:
+                  type: number
+                lng:
+                  type: number
+                location_id:
+                  type: string
+                  format: uuid
+                location:
+                  type: string
+                  description: coordinate string / DMS / geohash / Plus Code (D27)
+                q:
+                  type: string
+                  description: free-text place to geocode (D27)
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /home:
+    get:
+      tags:
+      - Home
+      summary: Home payload
+      parameters:
+      - name: lat
+        in: query
+        schema:
+          type: number
+      - name: lng
+        in: query
+        schema:
+          type: number
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /chat/sessions:
+    post:
+      tags:
+      - Chat
+      summary: Start a discovery conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - text
+              properties:
+                text:
+                  type: string
+                  maxLength: 500
+                suggestion_id:
+                  type: string
+                  format: uuid
+                location:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /chat/sessions/{session_id}/messages:
+    get:
+      tags:
+      - Chat
+      summary: Conversation history
+      parameters:
+      - $ref: '#/components/parameters/sessionId'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    post:
+      tags:
+      - Chat
+      summary: Send a turn (text or quick reply)
+      parameters:
+      - $ref: '#/components/parameters/sessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  maxLength: 500
+                quick_reply_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /places/{place_id}:
+    get:
+      tags:
+      - Places
+      summary: Place details
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      - name: lat
+        in: query
+        schema:
+          type: number
+      - name: lng
+        in: query
+        schema:
+          type: number
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/Error'
+  /places/{place_id}/community-updates:
+    get:
+      tags:
+      - Places
+      summary: Community updates (paged)
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    post:
+      tags:
+      - Contribute
+      summary: Submit a presence-gated community update
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommunityUpdateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /places/compare:
+    get:
+      tags:
+      - Places
+      summary: Compare 2–3 places
+      parameters:
+      - name: ids
+        in: query
+        required: true
+        schema:
+          type: string
+          description: csv of 2-3 uuids
+      - name: lat
+        in: query
+        schema:
+          type: number
+      - name: lng
+        in: query
+        schema:
+          type: number
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /places/{place_id}/directions:
+    get:
+      tags:
+      - Places
+      summary: Directions, ETA, arrive-at
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      - name: origin_lat
+        in: query
+        required: true
+        schema:
+          type: number
+      - name: origin_lng
+        in: query
+        required: true
+        schema:
+          type: number
+      - name: mode
+        in: query
+        schema:
+          $ref: '#/components/schemas/TravelMode'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /places/{place_id}/follow:
+    put:
+      tags:
+      - Places
+      summary: Follow a place
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - notifications
+              properties:
+                notifications:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    delete:
+      tags:
+      - Places
+      summary: Unfollow a place
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      responses:
+        '204':
+          description: No content
+  /places/{place_id}/reports:
+    post:
+      tags:
+      - Places
+      summary: 'PROPOSED-NO-FIGMA: report content'
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - affected_content_type
+              - affected_content_id
+              - reason
+              properties:
+                affected_content_type:
+                  type: string
+                  enum:
+                  - live_update
+                  - offer
+                  - gallery_media
+                  - contribution
+                affected_content_id:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /offers/{offer_id}/redeem:
+    post:
+      tags:
+      - Places
+      summary: 'PROPOSED-NO-FIGMA: redeem a coupon'
+      parameters:
+      - name: offer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/idempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+  /contribute/places:
+    get:
+      tags:
+      - Contribute
+      summary: Places needing a fresh update
+      parameters:
+      - name: lat
+        in: query
+        schema:
+          type: number
+      - name: lng
+        in: query
+        schema:
+          type: number
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /media/uploads:
+    post:
+      tags:
+      - Media
+      summary: Start a presigned media upload
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - kind
+              - content_type
+              - size_bytes
+              properties:
+                kind:
+                  type: string
+                  enum:
+                  - photo
+                  - video
+                content_type:
+                  type: string
+                size_bytes:
+                  type: integer
+                  minimum: 1
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /media/{media_id}/complete:
+    post:
+      tags:
+      - Media
+      summary: Confirm upload and start processing
+      parameters:
+      - name: media_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /visits:
+    post:
+      tags:
+      - Visits
+      summary: Report arrival (auto or manual)
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - place_id
+              - method
+              - location
+              properties:
+                place_id:
+                  type: string
+                  format: uuid
+                method:
+                  type: string
+                  enum:
+                  - auto
+                  - manual
+                location:
+                  type: object
+                  required:
+                  - lat
+                  - lng
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+  /visits/active:
+    get:
+      tags:
+      - Visits
+      summary: Active visit + contribution due state
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /me/saved-places:
+    get:
+      tags:
+      - Saved
+      summary: Saved places (paged)
+      parameters:
+      - name: lat
+        in: query
+        schema:
+          type: number
+      - name: lng
+        in: query
+        schema:
+          type: number
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /me/saved-places/{place_id}:
+    put:
+      tags:
+      - Saved
+      summary: Save a place
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    delete:
+      tags:
+      - Saved
+      summary: Unsave a place
+      parameters:
+      - $ref: '#/components/parameters/placeId'
+      responses:
+        '204':
+          description: No content
+  /me:
+    get:
+      tags:
+      - Profile
+      summary: Personal information
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    patch:
+      tags:
+      - Profile
+      summary: Change email (OTP gated)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '202':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+  /me/email/verify:
+    post:
+      tags:
+      - Profile
+      summary: Verify the new email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - otp
+              properties:
+                otp:
+                  type: string
+                  pattern: ^[0-9]{6}$
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/Error'
+  /me/password:
+    post:
+      tags:
+      - Profile
+      summary: Change password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - current_password
+              - new_password
+              - new_password_confirmation
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+                new_password_confirmation:
+                  type: string
+      responses:
+        '204':
+          description: No content
+        '400':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+  /me/devices:
+    post:
+      tags:
+      - Profile
+      summary: Register a push token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Device'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+  /me/account-deletion:
+    post:
+      tags:
+      - Profile
+      summary: Schedule account deletion (30d)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - password
+              properties:
+                password:
+                  type: string
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        '202':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags:
+      - Profile
+      summary: Cancel scheduled deletion
+      responses:
+        '204':
+          description: No content
+  /business/auth/register:
+    post:
+      tags:
+      - Business Auth
+      summary: Portal self sign-up
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - name
+              - email
+              - password
+              - password_confirmation
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                password_confirmation:
+                  type: string
+                business_name:
+                  type: string
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+  /business/auth/login:
+    post:
+      tags:
+      - Business Auth
+      summary: Provider sign-in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /business/auth/refresh:
+    post:
+      tags:
+      - Business Auth
+      summary: Rotate provider tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Error'
+  /business/auth/logout:
+    post:
+      tags:
+      - Business Auth
+      summary: Log out
+      responses:
+        '204':
+          description: No content
+  /business/auth/forgot-password:
+    post:
+      tags:
+      - Business Auth
+      summary: Recovery start
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/auth/otp/verify:
+    post:
+      tags:
+      - Business Auth
+      summary: Verify OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - otp
+              - purpose
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  pattern: ^[0-9]{6}$
+                purpose:
+                  $ref: '#/components/schemas/OtpPurpose'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/Error'
+  /business/auth/otp/resend:
+    post:
+      tags:
+      - Business Auth
+      summary: Resend OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - purpose
+              properties:
+                email:
+                  type: string
+                  format: email
+                purpose:
+                  $ref: '#/components/schemas/OtpPurpose'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/auth/reset-password:
+    post:
+      tags:
+      - Business Auth
+      summary: Set a new password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reset_token
+              - password
+              - password_confirmation
+              properties:
+                reset_token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                password_confirmation:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '410':
+          $ref: '#/components/responses/Error'
+  /business/invitations/{token}:
+    get:
+      tags:
+      - Business Auth
+      summary: View an invitation
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/token'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '410':
+          $ref: '#/components/responses/Error'
+  /business/invitations/{token}/accept:
+    post:
+      tags:
+      - Business Auth
+      summary: Accept an invitation
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/token'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - name
+              - password
+              - password_confirmation
+              properties:
+                name:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                password_confirmation:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '410':
+          $ref: '#/components/responses/Error'
+  /business/claims/current:
+    get:
+      tags:
+      - Business Claim
+      summary: Current claim
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/locations/search:
+    get:
+      tags:
+      - Business Claim
+      summary: Find your business
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/claims:
+    post:
+      tags:
+      - Business Claim
+      summary: Open a claim draft
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - location_id
+              properties:
+                location_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+  /business/claims/{claim_id}:
+    get:
+      tags:
+      - Business Claim
+      summary: Claim summary
+      parameters:
+      - $ref: '#/components/parameters/claimId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/claims/{claim_id}/requirements:
+    get:
+      tags:
+      - Business Claim
+      summary: Dynamic verification requirements
+      parameters:
+      - $ref: '#/components/parameters/claimId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/claims/{claim_id}/verification:
+    put:
+      tags:
+      - Business Claim
+      summary: Save verification fields + documents
+      parameters:
+      - $ref: '#/components/parameters/claimId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - fields
+              - documents
+              properties:
+                fields:
+                  type: object
+                  additionalProperties:
+                    type: string
+                documents:
+                  type: object
+                  additionalProperties:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /business/claims/{claim_id}/submit:
+    post:
+      tags:
+      - Business Claim
+      summary: Submit claim for review
+      parameters:
+      - $ref: '#/components/parameters/claimId'
+      - $ref: '#/components/parameters/idempotencyKey'
+      responses:
+        '202':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /business/uploads:
+    post:
+      tags:
+      - Business Claim
+      summary: Start an upload (claim document or gallery)
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - purpose
+              - file_name
+              - content_type
+              - size_bytes
+              properties:
+                purpose:
+                  type: string
+                  enum:
+                  - claim_document
+                  - gallery
+                file_name:
+                  type: string
+                content_type:
+                  type: string
+                size_bytes:
+                  type: integer
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+  /business/uploads/{upload_id}/complete:
+    post:
+      tags:
+      - Business Claim
+      summary: Confirm an upload
+      parameters:
+      - name: upload_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/overview:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Overview
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '403':
+          $ref: '#/components/responses/Error'
+  /business/community-updates:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Recent engagement (paged)
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/live-updates:
+    get:
+      tags:
+      - Business Dashboard
+      summary: List live updates
+      parameters:
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/LiveUpdateStatus'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    post:
+      tags:
+      - Business Dashboard
+      summary: Create a live update
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - text
+              - publish_mode
+              properties:
+                text:
+                  type: string
+                  maxLength: 280
+                publish_mode:
+                  $ref: '#/components/schemas/PublishMode'
+                scheduled_for:
+                  type: string
+                  format: date-time
+                expires_at:
+                  type: string
+                  format: date-time
+                notify_followers:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /business/live-updates/{id}/end:
+    post:
+      tags:
+      - Business Dashboard
+      summary: End a live update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/calendar:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Calendar items
+      parameters:
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/calendar/items:
+    post:
+      tags:
+      - Business Dashboard
+      summary: Schedule an item
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - item_type
+              - title
+              - publish_mode
+              properties:
+                item_type:
+                  $ref: '#/components/schemas/CalendarItemType'
+                title:
+                  type: string
+                  maxLength: 120
+                publish_mode:
+                  $ref: '#/components/schemas/PublishMode'
+                scheduled_at:
+                  type: string
+                  format: date-time
+                notify_followers:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+  /business/calendar/items/{id}/cancel:
+    post:
+      tags:
+      - Business Dashboard
+      summary: Cancel a scheduled item
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/offers:
+    get:
+      tags:
+      - Business Dashboard
+      summary: List offers
+      parameters:
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/OfferStatus'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    post:
+      tags:
+      - Business Dashboard
+      summary: Create an offer
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - title
+              - terms
+              - publish_mode
+              - valid_from
+              - code
+              properties:
+                title:
+                  type: string
+                  maxLength: 120
+                terms:
+                  type: string
+                  maxLength: 500
+                publish_mode:
+                  $ref: '#/components/schemas/PublishMode'
+                valid_from:
+                  type: string
+                  format: date-time
+                valid_to:
+                  type: string
+                  format: date-time
+                code:
+                  type: string
+                quantity_limit:
+                  type: integer
+                  minimum: 1
+                notify_followers:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+  /business/offers/{id}:
+    patch:
+      tags:
+      - Business Dashboard
+      summary: Edit a scheduled offer
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                terms:
+                  type: string
+                valid_from:
+                  type: string
+                  format: date-time
+                valid_to:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+  /business/offers/{id}/end:
+    post:
+      tags:
+      - Business Dashboard
+      summary: End an offer
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/analytics:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Analytics
+      parameters:
+      - name: range
+        in: query
+        schema:
+          type: string
+          enum:
+          - 7d
+          - 30d
+          - 90d
+          default: 30d
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/location-profile:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Location profile
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    put:
+      tags:
+      - Business Dashboard
+      summary: Edit location profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hours:
+                  type: array
+                  items:
+                    type: object
+                contact:
+                  type: object
+                links:
+                  type: object
+                description:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '422':
+          $ref: '#/components/responses/Error'
+  /business/location-profile/gallery:
+    post:
+      tags:
+      - Business Dashboard
+      summary: Add gallery media (pending review)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - upload_id
+              properties:
+                upload_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+  /business/location-profile/gallery/{media_id}:
+    delete:
+      tags:
+      - Business Dashboard
+      summary: Remove gallery media
+      parameters:
+      - name: media_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: No content
+  /business/team:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Team list
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/team/invitations:
+    post:
+      tags:
+      - Business Dashboard
+      summary: Invite staff
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                permissions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PermissionModule'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        '409':
+          $ref: '#/components/responses/Error'
+  /business/team/{member_id}/permissions:
+    put:
+      tags:
+      - Business Dashboard
+      summary: Assign module permissions
+      parameters:
+      - name: member_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - permissions
+              properties:
+                permissions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PermissionModule'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/team/{member_id}:
+    delete:
+      tags:
+      - Business Dashboard
+      summary: Remove/disable a staff member
+      parameters:
+      - name: member_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: No content
+  /business/reports:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Reports affecting the business
+      parameters:
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ReportStatus'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/reports/{id}:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Report detail
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /business/disputes:
+    get:
+      tags:
+      - Business Dashboard
+      summary: Dispute list
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    post:
+      tags:
+      - Business Dashboard
+      summary: Submit a dispute
+      parameters:
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - subject
+              - details
+              properties:
+                subject:
+                  type: string
+                  maxLength: 120
+                related_content:
+                  type: string
+                  maxLength: 200
+                report_id:
+                  type: string
+                  format: uuid
+                details:
+                  type: string
+                  maxLength: 2000
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+  /business/me:
+    get:
+      tags:
+      - Business Settings
+      summary: Portal profile
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    patch:
+      tags:
+      - Business Settings
+      summary: Update portal profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                restaurant_name:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '202':
+          $ref: '#/components/responses/Success'
+  /business/me/password:
+    post:
+      tags:
+      - Business Settings
+      summary: Update password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - current_password
+              - new_password
+              - new_password_confirmation
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+                new_password_confirmation:
+                  type: string
+      responses:
+        '204':
+          description: No content
+        '422':
+          $ref: '#/components/responses/Error'
+  /admin-api/auth/login:
+    post:
+      tags:
+      - Admin
+      summary: Admin sign-in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Error'
+  /admin-api/auth/refresh:
+    post:
+      tags:
+      - Admin
+      summary: Rotate admin tokens
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/auth/logout:
+    post:
+      tags:
+      - Admin
+      summary: Admin log out
+      responses:
+        '204':
+          description: No content
+  /admin-api/dashboard:
+    get:
+      tags:
+      - Admin
+      summary: Pending-work summary
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/users:
+    get:
+      tags:
+      - Admin
+      summary: Search users
+      parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/users/{id}:
+    get:
+      tags:
+      - Admin
+      summary: User detail
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/users/{id}/status:
+    patch:
+      tags:
+      - Admin
+      summary: Suspend/reactivate a user
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                  - active
+                  - suspended
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/claims:
+    get:
+      tags:
+      - Admin
+      summary: Claim review queue
+      parameters:
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ClaimStatus'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/claims/{id}/approve:
+    post:
+      tags:
+      - Admin
+      summary: Approve a claim
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/claims/{id}/reject:
+    post:
+      tags:
+      - Admin
+      summary: Reject a claim
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reason
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+                allow_resubmit:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/claim-requirements:
+    get:
+      tags:
+      - Admin
+      summary: Read claim verification template
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    put:
+      tags:
+      - Admin
+      summary: Update claim verification template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - fields
+              - documents
+              properties:
+                fields:
+                  type: array
+                  items:
+                    type: object
+                documents:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/reports:
+    get:
+      tags:
+      - Admin
+      summary: Moderation queue
+      parameters:
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ReportStatus'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/reports/{id}/decision:
+    post:
+      tags:
+      - Admin
+      summary: Decide a report
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                  - dismiss
+                  - uphold
+                action:
+                  type: string
+                  enum:
+                  - none
+                  - remove
+                  - restore
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/disputes:
+    get:
+      tags:
+      - Admin
+      summary: Dispute queue
+      parameters:
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/DisputeStatus'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/disputes/{id}:
+    patch:
+      tags:
+      - Admin
+      summary: Update/resolve a dispute
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - status
+              properties:
+                status:
+                  $ref: '#/components/schemas/DisputeStatus'
+                decision:
+                  type: string
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/community-updates:
+    get:
+      tags:
+      - Admin
+      summary: Community update moderation queue
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/community-updates/{id}/decision:
+    post:
+      tags:
+      - Admin
+      summary: Moderate a community update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                  - publish
+                  - hide
+                  - remove
+                  - restore
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/media:
+    get:
+      tags:
+      - Admin
+      summary: Media moderation queue
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/media/{id}/decision:
+    post:
+      tags:
+      - Admin
+      summary: Approve/reject media
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                  - approve
+                  - reject
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/places:
+    get:
+      tags:
+      - Admin
+      summary: Place inventory
+      parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    post:
+      tags:
+      - Admin
+      summary: Create a place
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - name
+              - lat
+              - lng
+              properties:
+                name:
+                  type: string
+                address_line1:
+                  type: string
+                city:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                timezone:
+                  type: string
+                environment:
+                  $ref: '#/components/schemas/Environment'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+  /admin-api/places/{id}:
+    patch:
+      tags:
+      - Admin
+      summary: Edit/hide a place
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                status:
+                  type: string
+                  enum:
+                  - active
+                  - hidden
+                city:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/places/import:
+    post:
+      tags:
+      - Admin
+      summary: Bulk import + geo-dedupe places
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - source
+              properties:
+                source:
+                  type: string
+                ref:
+                  type: string
+      responses:
+        '202':
+          $ref: '#/components/responses/Success'
+  /admin-api/gamification/badges:
+    get:
+      tags:
+      - Admin
+      summary: Badge catalogue
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/gamification/badges/{id}:
+    put:
+      tags:
+      - Admin
+      summary: Create/update a badge
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                icon_url:
+                  type: string
+                criteria:
+                  type: object
+                active:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/settings/xp-rules:
+    patch:
+      tags:
+      - Admin
+      summary: Tune XP rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - action
+              - xp
+              properties:
+                action:
+                  type: string
+                xp:
+                  type: integer
+                daily_cap:
+                  type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /admin-api/audit-logs:
+    get:
+      tags:
+      - Admin
+      summary: Query the audit trail
+      parameters:
+      - name: actor
+        in: query
+        schema:
+          type: string
+      - name: entity
+        in: query
+        schema:
+          type: string
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    placeId:
+      name: place_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    sessionId:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    claimId:
+      name: claim_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    token:
+      name: token
+      in: path
+      required: true
+      schema:
+        type: string
+    cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    idempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+  responses:
+    Success:
+      description: Success envelope
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: {}
+              meta:
+                $ref: '#/components/schemas/Meta'
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Meta:
+      type: object
+      properties:
+        next_cursor:
+          type: string
+          nullable: true
+        unread_count:
+          type: integer
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            fields:
+              type: object
+              additionalProperties:
+                type: string
+            request_id:
+              type: string
+    Device:
+      type: object
+      required:
+      - platform
+      - push_token
+      properties:
+        platform:
+          type: string
+          enum:
+          - ios
+          - android
+        push_token:
+          type: string
+    Author:
+      type: object
+      properties:
+        handle:
+          type: string
+        avatar:
+          type: object
+          properties:
+            id:
+              type: string
+            url:
+              type: string
+    RightNow:
+      type: object
+      properties:
+        crowd:
+          type: string
+          nullable: true
+        noise:
+          type: string
+          nullable: true
+        wait_minutes:
+          type: integer
+          nullable: true
+        parking:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - available
+          - limited_current_information
+        updated_at:
+          type: string
+          format: date-time
+    Reliability:
+      type: object
+      properties:
+        level:
+          $ref: '#/components/schemas/ReliabilityLevel'
+        community_updates_count:
+          type: integer
+        live_biz_updates_count:
+          type: integer
+        most_recent_update_at:
+          type: string
+          format: date-time
+          nullable: true
+        explanation:
+          type: string
+    PlaceCard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        distance_m:
+          type: integer
+        is_open:
+          type: boolean
+        reliability:
+          type: object
+          properties:
+            level:
+              $ref: '#/components/schemas/ReliabilityLevel'
+        updated_at:
+          type: string
+          format: date-time
+        right_now:
+          allOf:
+          - $ref: '#/components/schemas/RightNow'
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        live_biz_update:
+          type: object
+          nullable: true
+          properties:
+            text:
+              type: string
+            posted_at:
+              type: string
+              format: date-time
+        event:
+          type: object
+          nullable: true
+          properties:
+            title:
+              type: string
+            starts_at:
+              type: string
+              format: date-time
+        offer:
+          type: object
+          nullable: true
+          properties:
+            title:
+              type: string
+            description:
+              type: string
+        why_this_fits:
+          type: string
+          nullable: true
+        is_saved:
+          type: boolean
+        location:
+          type: object
+          properties:
+            location_id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            lat:
+              type: number
+            lng:
+              type: number
+    CommunityUpdateRequest:
+      type: object
+      required:
+      - visit_id
+      properties:
+        visit_id:
+          type: string
+          format: uuid
+        crowd:
+          $ref: '#/components/schemas/CrowdLevel'
+        noise:
+          $ref: '#/components/schemas/NoiseLevel'
+        wait:
+          $ref: '#/components/schemas/WaitBucket'
+        parking:
+          $ref: '#/components/schemas/ParkingLevel'
+        atmosphere:
+          type: array
+          items:
+            $ref: '#/components/schemas/Atmosphere'
+          minItems: 1
+          maxItems: 3
+        note:
+          type: string
+          maxLength: 500
+        media_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 4
+    ReliabilityLevel:
+      type: string
+      enum:
+      - high
+      - medium
+      - low
+      - insufficient_data
+    CrowdLevel:
+      type: string
+      enum:
+      - light
+      - moderate
+      - busy
+      - packed
+    NoiseLevel:
+      type: string
+      enum:
+      - quiet
+      - moderate
+      - loud
+    WaitBucket:
+      type: string
+      enum:
+      - none
+      - 5_min
+      - 10_min
+      - 20_plus_min
+    ParkingLevel:
+      type: string
+      enum:
+      - easy
+      - moderate
+      - difficult
+      - full
+      - not_applicable
+    Atmosphere:
+      type: string
+      enum:
+      - cozy
+      - lively
+      - romantic
+      - casual
+      - trendy
+      - loud_music
+    Environment:
+      type: string
+      enum:
+      - outdoors
+      - indoors
+    NotRightNowReason:
+      type: string
+      enum:
+      - too_crowded
+      - too_loud
+      - too_expensive
+      - too_far
+      - not_the_right_atmosphere
+      - changed_my_mind
+      - other
+    TravelMode:
+      type: string
+      enum:
+      - walking
+      - driving
+      - transit
+    AccountType:
+      type: string
+      enum:
+      - consumer
+      - provider
+    OtpPurpose:
+      type: string
+      enum:
+      - email_verification
+      - password_reset
+    ClaimStatus:
+      type: string
+      enum:
+      - none
+      - draft
+      - pending_review
+      - approved
+      - rejected
+    PermissionModule:
+      type: string
+      enum:
+      - overview
+      - live_updates
+      - promotions_calendar
+      - offers_coupons
+      - analytics
+      - location_profile
+      - reports
+    PublishMode:
+      type: string
+      enum:
+      - now
+      - schedule
+    LiveUpdateStatus:
+      type: string
+      enum:
+      - scheduled
+      - published
+      - expired
+      - ended
+    OfferStatus:
+      type: string
+      enum:
+      - scheduled
+      - active
+      - expired
+      - ended
+    CalendarItemType:
+      type: string
+      enum:
+      - update
+      - special
+      - event
+      - coupon
+      - reminder
+    ReportStatus:
+      type: string
+      enum:
+      - pending_review
+      - upheld
+      - dismissed
+    DisputeStatus:
+      type: string
+      enum:
+      - open
+      - in_progress
+      - resolved
